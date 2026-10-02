@@ -19,6 +19,9 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import com.influxdb.client.WriteApi;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,6 +38,8 @@ public class UsageService {
     private DeviceClient deviceClient;
     private UserClient userClient;
 
+    private WriteApi writeApi;   // <-- add this
+
     @Value("${influx.bucket}")
     private String influxBucket;
 
@@ -50,6 +55,16 @@ public class UsageService {
         this.kafkaTemplate = kafkaTemplate;
     }
 
+    @PostConstruct
+    void initWriteApi() {
+        this.writeApi = influxDBClient.makeWriteApi();
+    }
+
+    @PreDestroy
+    void closeWriteApi() {
+        writeApi.close();
+    }
+
     @KafkaListener(topics = "energy-usage", groupId = "usage-service")
     public void energyUsageEvent(EnergyUsageEvent energyUsageEvent) {
         // log.info("Received energy usage event: {}", energyUsageEvent);
@@ -57,7 +72,7 @@ public class UsageService {
                 .addTag("deviceId", String.valueOf(energyUsageEvent.deviceId()))
                 .addField("energyConsumed", energyUsageEvent.energyConsumed())
                 .time(energyUsageEvent.timestamp(), WritePrecision.MS);
-        influxDBClient.getWriteApiBlocking().writePoint(influxBucket, influxOrg, point);
+        writeApi.writePoint(influxBucket, influxOrg, point);
     }
 
     @Scheduled(cron = "*/10 * * * * *")
