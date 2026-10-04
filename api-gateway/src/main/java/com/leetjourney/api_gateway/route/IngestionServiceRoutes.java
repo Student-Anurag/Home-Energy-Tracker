@@ -2,6 +2,7 @@ package com.leetjourney.api_gateway.route;
 
 import org.springframework.cloud.gateway.server.mvc.filter.CircuitBreakerFilterFunctions;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.function.RequestPredicates;
 import org.springframework.web.servlet.function.RouterFunction;
@@ -25,6 +26,15 @@ public class IngestionServiceRoutes {
                         "ingestionServiceCircuitBreaker",
                         URI.create("forward:/fallbackRoute")
                 ))
+                .build();
+    }
+
+    @Bean
+    public RouterFunction<ServerResponse> ingestionFallbackRoute() {
+        return route("fallbackRoute")
+                .route(RequestPredicates.path("/fallbackRoute"),
+                        request-> ServerResponse.status(HttpStatus.SERVICE_UNAVAILABLE)
+                                .body("Ingestion service is down"))
                 .build();
     }
 }
